@@ -1,0 +1,3 @@
+[submodule "services/Multitenant-User-Management-Service"]
+	path = services/Multitenant-User-Management-Service
+	url = https://github.com/farismnrr/Multitenant-User-Management-Service.git
