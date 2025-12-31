@@ -6,8 +6,23 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      - DB_HOST=postgres-sql
+    networks:
+      - postgres-network
     volumes:
       - ./data:/app/data
       - ./storage:/app/storage
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  postgres-network:
+    name: postgres_postgres-network
+    external: true
 

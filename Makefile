@@ -143,8 +143,8 @@ key:
 	@echo "💡 Add this to your .env as ENCRYPTION_MASTER_KEY"
 
 # --- Docker Configuration ---
-DOCKER_IMAGE_NAME = secure-file-viewer
-GHCR_REPO = ghcr.io/farismnrr/secure-file-viewer
+DOCKER_IMAGE_NAME = secure-pdf-viewer
+GHCR_REPO = ghcr.io/farismnrr/secure-pdf-viewer
 
 # Build Docker image
 build-docker: setup-postgres
@@ -178,23 +178,27 @@ status-docker:
 
 # Commit and push to GitHub (triggers CI)
 push:
-	@echo "🚀 Preparing to push to GitHub (CI Workflow)..."
-	@if [ -n "$$(git status --porcelain)" ]; then \
-		read -p "Enter commit message: " msg; \
-		if [ -z "$$msg" ]; then echo "❌ Message cannot be empty"; exit 1; fi; \
-		git add .; \
-		git commit -m "$$msg"; \
-	else \
-		echo "✨ No changes to commit. Pushing current HEAD..."; \
-	fi
-	@echo "☁️  Pushing to origin..."
-	git push
+	@echo "🚀 Triggering GitHub Actions workflow for Docker push..."
+	@command -v gh >/dev/null 2>&1 || ( \
+		if command -v apt-get >/dev/null 2>&1; then \
+			echo "⬇️  Installing GitHub CLI via apt..."; \
+			SUDO=$$(command -v sudo >/dev/null 2>&1 && echo sudo || echo); \
+			$$SUDO apt-get update && $$SUDO apt-get install -y gh || { echo "❌ Failed to install gh"; exit 1; }; \
+		else \
+			echo "❌ GitHub CLI 'gh' not found and auto-install is not configured for this OS."; \
+			echo "   Install from https://cli.github.com/ then rerun 'make push'"; \
+			exit 1; \
+		fi \
+	)
+	@echo "📦 Triggering workflow 'secure-pdf-viewer.yml'..."
+	@gh workflow run secure-pdf-viewer.yml --ref main
+	@echo "✅ Workflow dispatched. Track with 'gh run watch --latest'"
 
 # Push local image to GitHub Container Registry
 push-local: build-docker
 	@read -p "Enter Docker tag to push (default: latest): " tag; \
 	tag=$${tag:-latest}; \
-	echo "🚀 Pushing to GHCR - tag: $$tag..."; \
+	echo "🚀 Pushing to GHCR with multi-arch build (amd64, arm64) - tag: $$tag..."; \
 	export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
 	if [ -n "$${CR_PAT}" ] || [ -n "$${GITHUB_TOKEN}" ]; then \
 		echo "🔐 Logging in to GHCR..."; \
@@ -202,7 +206,7 @@ push-local: build-docker
 	else \
 		echo "⚠️  No CR_PAT or GITHUB_TOKEN found. Skipping login (assuming already logged in)..."; \
 	fi; \
-	docker push $(GHCR_REPO):$$tag; \
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$$tag --push .; \
 	echo "✅ Image pushed to $(GHCR_REPO):$$tag"
 
 # --- Docker Compose Management ---
