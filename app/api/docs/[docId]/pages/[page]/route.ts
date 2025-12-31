@@ -4,13 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDocument } from '@/lib/registry';
-import { validateAndConsumeNonce, getNonceInfo } from '@/lib/nonce';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import { logAccess } from '@/lib/logger';
-import { renderPage, getPageCount } from '@/lib/pdf-renderer';
-import { applyWatermark } from '@/lib/watermark';
-import { decryptBuffer, getMasterKey } from '@/lib/crypto';
+import { getDocument } from '@/lib/document/registry';
+import { validateAndConsumeNonce, getNonceInfo } from '@/lib/services/nonce';
+import { checkRateLimit } from '@/lib/services/rate-limiter';
+import { logAccess } from '@/lib/services/logger';
+import { renderPage, getPageCount } from '@/lib/document/renderer';
+import { applyWatermark } from '@/lib/document/watermark';
+import { decryptBuffer, getMasterKey } from '@/lib/utils/crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -41,7 +41,7 @@ export async function GET(
         // Rate limiting
         const rateLimit = checkRateLimit(ip, '/api/docs/pages');
         if (!rateLimit.allowed) {
-            logAccess(docId, 'rate_limited', { ip });
+            await logAccess(docId, 'rate_limited', { ip });
             return NextResponse.json(
                 { error: 'Rate limit exceeded' },
                 { status: 429 }
@@ -53,7 +53,7 @@ export async function GET(
             || request.headers.get('x-nonce');
 
         if (!nonce) {
-            logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'missing' } });
+            await logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'missing' } });
             return NextResponse.json(
                 { error: 'Nonce required' },
                 { status: 401 }
@@ -61,14 +61,14 @@ export async function GET(
         }
 
         // Get nonce info before consuming
-        const nonceInfo = getNonceInfo(nonce);
+        const nonceInfo = await getNonceInfo(nonce);
 
         // For page 1, consume the nonce. For other pages, just validate
         let sessionId: string | null = null;
         if (pageNumber === 1) {
-            sessionId = validateAndConsumeNonce(docId, nonce);
+            sessionId = await validateAndConsumeNonce(docId, nonce);
             if (!sessionId) {
-                logAccess(docId, 'invalid_nonce', { ip, metadata: { nonce: nonce.substring(0, 8), page: pageNumber } });
+                await logAccess(docId, 'invalid_nonce', { ip, metadata: { nonce: nonce.substring(0, 8), page: pageNumber } });
                 return NextResponse.json(
                     { error: 'Invalid or expired nonce' },
                     { status: 401 }
@@ -78,7 +78,7 @@ export async function GET(
             // For subsequent pages, check if nonce was valid (consumed for page 1)
             // We use the session from the nonce info
             if (!nonceInfo) {
-                logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'not_found', page: pageNumber } });
+                await logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'not_found', page: pageNumber } });
                 return NextResponse.json(
                     { error: 'Invalid nonce' },
                     { status: 401 }
@@ -106,18 +106,35 @@ export async function GET(
         }
 
         // Load and decrypt PDF
-        const encPath = path.join(process.cwd(), document.encryptedPath);
-        if (!fs.existsSync(encPath)) {
-            console.error('Encrypted file not found:', encPath);
-            return NextResponse.json(
-                { error: 'Document file not found' },
-                { status: 500 }
-            );
-        }
 
-        const encryptedData = fs.readFileSync(encPath);
-        const key = getMasterKey();
-        const pdfBuffer = decryptBuffer(encryptedData, key);
+        // Load and decrypt PDF (with caching)
+        const loadPdfValues = async () => {
+            const encPath = path.join(process.cwd(), document.encryptedPath);
+            if (!fs.existsSync(encPath)) {
+                throw new Error('Document file not found');
+            }
+            const encryptedData = fs.readFileSync(encPath);
+            const key = getMasterKey();
+            return decryptBuffer(encryptedData, key);
+        };
+
+        let pdfBuffer: Buffer;
+        try {
+            // Import dynamically to avoid circle deps or if top-level issues
+            const { getCachedDocument } = await import('@/lib/document/cache');
+            pdfBuffer = await getCachedDocument(docId, loadPdfValues);
+        } catch (err: unknown) {
+            console.error('Cache/Load error:', err);
+            const errorMessage = err instanceof Error ? err.message : String(err);
+
+            if (errorMessage.includes('not found')) {
+                return NextResponse.json(
+                    { error: 'Document file not found' },
+                    { status: 500 }
+                );
+            }
+            throw err;
+        }
 
         // Check page count
         const totalPages = await getPageCount(pdfBuffer);
@@ -141,7 +158,7 @@ export async function GET(
         });
 
         // Log access
-        logAccess(docId, 'page_request', {
+        await logAccess(docId, 'page_request', {
             sessionId: sessionId || undefined,
             ip,
             userAgent,

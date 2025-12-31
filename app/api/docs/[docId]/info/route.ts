@@ -4,12 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDocument } from '@/lib/registry';
-import { isNonceValid, getNonceInfo } from '@/lib/nonce';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import { logAccess } from '@/lib/logger';
-import { getPageCount } from '@/lib/pdf-renderer';
-import { decryptBuffer, getMasterKey } from '@/lib/crypto';
+import { getDocument } from '@/lib/document/registry';
+import { isNonceValid, getNonceInfo } from '@/lib/services/nonce';
+import { checkRateLimit } from '@/lib/services/rate-limiter';
+import { logAccess } from '@/lib/services/logger';
+import { getPageCount } from '@/lib/document/renderer';
+import { decryptBuffer, getMasterKey } from '@/lib/utils/crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -39,7 +39,7 @@ export async function GET(
         // Get nonce from header
         const nonce = request.headers.get('x-nonce');
         if (!nonce) {
-            logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'missing' } });
+            await logAccess(docId, 'invalid_nonce', { ip, metadata: { reason: 'missing' } });
             return NextResponse.json(
                 { error: 'Nonce required' },
                 { status: 401 }
@@ -47,8 +47,8 @@ export async function GET(
         }
 
         // Validate nonce (don't consume - just check)
-        if (!isNonceValid(docId, nonce)) {
-            logAccess(docId, 'invalid_nonce', { ip, metadata: { nonce: nonce.substring(0, 8) } });
+        if (!(await isNonceValid(docId, nonce))) {
+            await logAccess(docId, 'invalid_nonce', { ip, metadata: { nonce: nonce.substring(0, 8) } });
             return NextResponse.json(
                 { error: 'Invalid or expired nonce' },
                 { status: 401 }
@@ -56,7 +56,7 @@ export async function GET(
         }
 
         // Get nonce info for session
-        const nonceInfo = getNonceInfo(nonce);
+        const nonceInfo = await getNonceInfo(nonce);
 
         // Get document metadata
         const document = getDocument(docId);

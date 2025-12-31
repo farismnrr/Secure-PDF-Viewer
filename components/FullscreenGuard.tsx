@@ -139,7 +139,11 @@ export default function FullscreenGuard({ children, onFullscreenExit }: Fullscre
                     <div className="lock-icon">🔒</div>
                     <h2>Secure Document Viewer</h2>
                     <p>This document requires fullscreen mode for security.</p>
-                    <button onClick={enterFullscreen} className="enter-fullscreen-btn">
+                    <button
+                        onClick={enterFullscreen}
+                        className="enter-fullscreen-btn mt-6 px-8 py-4 bg-white text-black font-bold text-lg rounded-xl hover:bg-gray-200 transition-all flex items-center gap-3 mx-auto shadow-lg active:scale-95"
+                    >
+                        <span className="text-xl">🛡️</span>
                         Enter Secure View
                     </button>
                     <p className="security-note">
@@ -159,7 +163,11 @@ export default function FullscreenGuard({ children, onFullscreenExit }: Fullscre
                 <div className="blur-overlay">
                     <div className="blur-message">
                         <p>⚠️ Fullscreen mode required</p>
-                        <button onClick={enterFullscreen} className="reenter-btn">
+                        <button
+                            onClick={enterFullscreen}
+                            className="reenter-btn px-6 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-all flex items-center gap-2 mx-auto active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>
                             Re-enter Fullscreen
                         </button>
                     </div>

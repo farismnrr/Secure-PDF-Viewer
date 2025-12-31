@@ -4,10 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { mintNonce } from '@/lib/nonce';
-import { getDocument } from '@/lib/registry';
-import { checkRateLimit } from '@/lib/rate-limiter';
-import { logAccess } from '@/lib/logger';
+import { mintNonce } from '@/lib/services/nonce';
+import { getDocument } from '@/lib/document/registry';
+import { checkRateLimit } from '@/lib/services/rate-limiter';
+import { logAccess } from '@/lib/services/logger';
+import { queryOne, placeholder } from '@/lib/db/query';
+import { verifyPassword } from '@/lib/utils/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
 
         if (!docId || typeof docId !== 'string') {
             return NextResponse.json(
-                { error: 'docId is required' },
+                { error: `docId is required or invalid. Received: ${docId}` },
                 { status: 400 }
             );
         }
@@ -53,11 +55,35 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Check password protection
+        interface DocWithPassword { password_hash: string | null; }
+        const dbDoc = await queryOne<DocWithPassword>(`SELECT password_hash FROM documents WHERE doc_id = ${placeholder(1)}`, [docId]);
+
+        if (dbDoc && dbDoc.password_hash) {
+            const { password } = body;
+            if (!password) {
+                return NextResponse.json(
+                    { error: 'Password required', requiresPassword: true },
+                    { status: 401 }
+                );
+            }
+
+            const isValid = await verifyPassword(password, dbDoc.password_hash);
+
+            if (!isValid) {
+                await logAccess(docId, 'auth_fail', { ip });
+                return NextResponse.json(
+                    { error: 'Invalid password' },
+                    { status: 401 }
+                );
+            }
+        }
+
         // Mint new nonce
-        const nonceData = mintNonce(docId);
+        const nonceData = await mintNonce(docId);
 
         // Log access
-        logAccess(docId, 'nonce_mint', {
+        await logAccess(docId, 'nonce_mint', {
             sessionId: nonceData.sessionId,
             ip,
             userAgent: request.headers.get('user-agent') || undefined
@@ -76,7 +102,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error minting nonce:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: `Server Error: ${error instanceof Error ? error.message : String(error)}` },
             { status: 500 }
         );
     }

@@ -1,6 +1,6 @@
 # Secure PDF Viewer - Makefile for Development Automation
 
-.PHONY: help dev build start test test-watch lint clean install encrypt add key build-docker start-docker docker-push kill
+.PHONY: help dev build start test test-watch lint clean install encrypt add key build-docker start-docker docker-push kill migrate-up migrate-down migrate-fresh migrate-create migrate-status
 
 # Default target
 help:
@@ -25,7 +25,12 @@ help:
 	@echo "  make clean            - Clean build artifacts and cache"
 	@echo "  make kill             - Kill process on port 3000"
 	@echo "  make key              - Generate encryption key"
-	@echo "  make db-reset         - Reset SQLite database"
+	@echo "  make migrate-up       - Run pending database migrations"
+	@echo "  make migrate-down     - Rollback last migration"
+	@echo "  make migrate-fresh    - Drop all tables and re-run migrations"
+	@echo "  make migrate-create   - Create new migration file"
+	@echo "  make migrate-status   - Show migration status"
+	@echo "  make db-reset         - Alias for migrate-fresh"
 	@echo ""
 
 # --- Development ---
@@ -41,8 +46,8 @@ build:
 	npm run build
 
 # Start production server
-start: build
-	@echo "🚀 Starting production server..."
+start:
+	@echo "🚀 Starting production server (from existing build)..."
 	npm run start
 
 # Install dependencies
@@ -146,7 +151,7 @@ start-docker: stop-compose
 	@read -p "Enter Docker tag to run (default: latest): " tag; \
 	tag=$${tag:-latest}; \
 	echo "🚀 Starting Docker container with tag: $$tag..."; \
-	docker run --rm -it -p 3000:3000 --env-file .env $(DOCKER_IMAGE_NAME):$$tag
+	docker run --rm -it --network="host" --env-file .env $(DOCKER_IMAGE_NAME):$$tag
 
 # Commit and push to GitHub (triggers CI)
 push:
@@ -209,21 +214,76 @@ stop-compose:
 compose-logs:
 	docker compose logs -f
 
-# --- Database ---
+# --- Database Migrations ---
 
-# Reset SQLite database
-db-reset:
-	@echo "🗑️  Resetting SQLite database..."
-	@rm -f data/viewer.db
-	@echo "✅ Database reset completed"
+# Run all pending migrations
+migrate-up:
+	@echo "⬆️  Running migrations..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+	npx tsx migrations/run.ts up
+
+# Rollback last migration
+migrate-down:
+	@echo "⬇️  Rolling back last migration..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+	npx tsx migrations/run.ts down
+
+# Drop all tables and re-run migrations
+migrate-fresh:
+	@echo "🔄 Fresh migration (drop all + migrate)..."
+	@read -p "⚠️  This will DELETE ALL DATA. Continue? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+		npx tsx migrations/run.ts fresh; \
+	else \
+		echo "❌ Cancelled"; \
+	fi
+
+# Create new migration file
+migrate-create:
+	@read -p "Enter migration name: " name; \
+	if [ -z "$$name" ]; then \
+		echo "❌ Migration name required"; \
+		exit 1; \
+	fi; \
+	count=$$(ls -1 migrations/*.ts 2>/dev/null | grep -E '^migrations/[0-9]{3}_' | wc -l); \
+	next=$$(printf "%03d" $$((count + 1))); \
+	filename="migrations/$${next}_$${name}.ts"; \
+	echo "Creating $$filename..."; \
+	echo "/**" > "$$filename"; \
+	echo " * Migration: $${name}" >> "$$filename"; \
+	echo " */" >> "$$filename"; \
+	echo "" >> "$$filename"; \
+	echo "import { MigrationRunner } from './runner';" >> "$$filename"; \
+	echo "" >> "$$filename"; \
+	echo "export const name = '$${next}_$${name}';" >> "$$filename"; \
+	echo "" >> "$$filename"; \
+	echo "export async function up(runner: MigrationRunner): Promise<void> {" >> "$$filename"; \
+	echo "  // Add migration logic here" >> "$$filename"; \
+	echo "}" >> "$$filename"; \
+	echo "" >> "$$filename"; \
+	echo "export async function down(runner: MigrationRunner): Promise<void> {" >> "$$filename"; \
+	echo "  // Add rollback logic here" >> "$$filename"; \
+	echo "}" >> "$$filename"; \
+	echo "✅ Created $$filename"
+
+# Show migration status
+migrate-status:
+	@echo "📋 Migration status..."
+	@export $$(grep -v '^#' .env | grep -v '^$$' | xargs); \
+	npx tsx migrations/run.ts status
+
+# Reset database (legacy - now alias to migrate-fresh)
+db-reset: migrate-fresh
+
 
 # --- Cleanup ---
 
 # Clean build artifacts and cache
 clean:
 	@echo "🧹 Cleaning build artifacts..."
-	@rm -rf .next
-	@rm -rf node_modules/.cache
+	@sudo rm -rf .next
+	@sudo rm -rf node_modules/.cache
 	@echo "✅ Clean completed"
 
 # Deep clean (includes node_modules)

@@ -6,8 +6,8 @@
 
 import fs from 'fs';
 import path from 'path';
-import { encryptBuffer } from '../lib/crypto';
-import { upsertDocument, DocumentMetadata } from '../lib/registry';
+import { encryptBuffer } from '../lib/utils/crypto';
+import { upsertDocument, DocumentMetadata } from '../lib/document/registry';
 
 async function main() {
     const args = process.argv.slice(2);

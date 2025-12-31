@@ -4,6 +4,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { queryOneSync } from '../db';
+
+// =============================================================================
+// Types
+// =============================================================================
 
 export interface DocumentMetadata {
     docId: string;
@@ -26,11 +31,12 @@ interface RegistryData {
     documents: DocumentMetadata[];
 }
 
+// =============================================================================
+// Legacy Registry (JSON file)
+// =============================================================================
+
 const REGISTRY_PATH = path.join(process.cwd(), 'data', 'registry.json');
 
-/**
- * Load registry from disk
- */
 function loadRegistry(): RegistryData {
     try {
         const data = fs.readFileSync(REGISTRY_PATH, 'utf-8');
@@ -40,15 +46,67 @@ function loadRegistry(): RegistryData {
     }
 }
 
-/**
- * Save registry to disk
- */
 function saveRegistry(registry: RegistryData): void {
     fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2));
 }
 
+// =============================================================================
+// Document Operations
+// =============================================================================
+
+interface DbDocument {
+    doc_id: string;
+    title: string;
+    encrypted_path: string;
+    content_type: string;
+    page_count: number | null;
+    is_encrypted: number;
+    watermark_policy: string | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+}
+
 /**
- * Get all active documents
+ * Get a specific document by ID
+ * Checks database first, then legacy registry.json
+ */
+export function getDocument(docId: string): DocumentMetadata | null {
+    // Try database first (for documents uploaded via admin)
+    try {
+        const doc = queryOneSync<DbDocument>(
+            'SELECT * FROM documents WHERE doc_id = ? LIMIT 1',
+            [docId]
+        );
+
+        if (doc) {
+            const watermarkPolicy = doc.watermark_policy
+                ? JSON.parse(doc.watermark_policy)
+                : { showIp: true, showTimestamp: true, showSessionId: true };
+
+            return {
+                docId: doc.doc_id,
+                title: doc.title,
+                encryptedPath: doc.encrypted_path,
+                contentType: doc.content_type,
+                pageCount: doc.page_count ?? undefined,
+                watermarkPolicy,
+                status: doc.status as 'active' | 'inactive',
+                createdAt: doc.created_at,
+                updatedAt: doc.updated_at
+            };
+        }
+    } catch {
+        // Fallback to legacy registry.json
+    }
+
+    // Fallback to legacy registry.json
+    const registry = loadRegistry();
+    return registry.documents.find(doc => doc.docId === docId) || null;
+}
+
+/**
+ * Get all active documents (legacy)
  */
 export function listDocuments(): DocumentMetadata[] {
     const registry = loadRegistry();
@@ -56,15 +114,7 @@ export function listDocuments(): DocumentMetadata[] {
 }
 
 /**
- * Get a specific document by ID
- */
-export function getDocument(docId: string): DocumentMetadata | null {
-    const registry = loadRegistry();
-    return registry.documents.find(doc => doc.docId === docId) || null;
-}
-
-/**
- * Add or update a document in registry
+ * Add or update a document in legacy registry
  */
 export function upsertDocument(doc: DocumentMetadata): void {
     const registry = loadRegistry();
@@ -84,7 +134,7 @@ export function upsertDocument(doc: DocumentMetadata): void {
 }
 
 /**
- * Deactivate a document
+ * Deactivate a document (legacy)
  */
 export function deactivateDocument(docId: string): boolean {
     const registry = loadRegistry();

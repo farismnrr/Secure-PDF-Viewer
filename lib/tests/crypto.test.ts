@@ -2,7 +2,7 @@
  * Unit tests for crypto utilities
  */
 
-import { encryptBuffer, decryptBuffer, generateNonce, generateSessionId } from '../crypto';
+import { encryptBuffer, decryptBuffer, generateNonce, generateSessionId } from '../utils/crypto';
 import crypto from 'crypto';
 
 describe('Crypto Utilities', () => {

@@ -1,16 +1,12 @@
 /**
- * Rate limiting utilities (In-Memory)
+ * Rate limiting service (In-Memory)
  */
 
-interface RateLimitConfig {
-    maxRequests: number;
-    windowMs: number;
-}
+import { getRateLimitConfig, type RateLimitConfig } from '../config';
 
-const DEFAULT_CONFIG: RateLimitConfig = {
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX || '200', 10),
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10)
-};
+// =============================================================================
+// Types
+// =============================================================================
 
 export interface RateLimitResult {
     allowed: boolean;
@@ -23,8 +19,10 @@ interface RateLimitEntry {
     windowStart: number;
 }
 
-// In-memory store: Map<"ip:endpoint", RateLimitEntry>
-// Note: This resets on server restart, which is acceptable for rate limiting.
+// =============================================================================
+// In-Memory Store
+// =============================================================================
+
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
 // Cleanup interval (every 5 minutes)
@@ -32,11 +30,15 @@ const CLEANUP_INTERVAL = 5 * 60 * 1000;
 setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimitStore.entries()) {
-        if (now > entry.windowStart + 60000) { // Assuming max window is ~1 min usually
+        if (now > entry.windowStart + 60000) {
             rateLimitStore.delete(key);
         }
     }
-}, CLEANUP_INTERVAL).unref(); // unref so it doesn't keep process alive
+}, CLEANUP_INTERVAL).unref();
+
+// =============================================================================
+// Rate Limit Functions
+// =============================================================================
 
 /**
  * Check if a request is within rate limits
@@ -44,55 +46,48 @@ setInterval(() => {
 export function checkRateLimit(
     ip: string,
     endpoint: string,
-    config: RateLimitConfig = DEFAULT_CONFIG
+    config?: RateLimitConfig
 ): RateLimitResult {
+    const cfg = config || getRateLimitConfig();
     const key = `${ip}:${endpoint}`;
     const now = Date.now();
-    const windowStart = now - config.windowMs;
+    const windowStart = now - cfg.windowMs;
 
     let entry = rateLimitStore.get(key);
 
-    // If no entry or window expired, reset
     if (!entry || entry.windowStart < windowStart) {
-        entry = {
-            count: 1,
-            windowStart: now
-        };
+        entry = { count: 1, windowStart: now };
         rateLimitStore.set(key, entry);
-
         return {
             allowed: true,
-            remaining: config.maxRequests - 1,
-            resetAt: new Date(now + config.windowMs)
+            remaining: cfg.maxRequests - 1,
+            resetAt: new Date(now + cfg.windowMs)
         };
     }
 
-    // Window active, check count
-    if (entry.count >= config.maxRequests) {
+    if (entry.count >= cfg.maxRequests) {
         return {
             allowed: false,
             remaining: 0,
-            resetAt: new Date(entry.windowStart + config.windowMs)
+            resetAt: new Date(entry.windowStart + cfg.windowMs)
         };
     }
 
-    // Increment
     entry.count++;
     return {
         allowed: true,
-        remaining: config.maxRequests - entry.count,
-        resetAt: new Date(entry.windowStart + config.windowMs)
+        remaining: cfg.maxRequests - entry.count,
+        resetAt: new Date(entry.windowStart + cfg.windowMs)
     };
 }
 
 /**
- * Reset rate limit for an IP (admin use or testing)
+ * Reset rate limit for an IP
  */
 export function resetRateLimit(ip: string, endpoint?: string): void {
     if (endpoint) {
         rateLimitStore.delete(`${ip}:${endpoint}`);
     } else {
-        // Delete all keys starting with IP
         for (const key of rateLimitStore.keys()) {
             if (key.startsWith(`${ip}:`)) {
                 rateLimitStore.delete(key);
@@ -102,7 +97,7 @@ export function resetRateLimit(ip: string, endpoint?: string): void {
 }
 
 /**
- * Clear all rate limits (for testing)
+ * Clear all rate limits
  */
 export function clearAllRateLimits(): void {
     rateLimitStore.clear();
@@ -114,21 +109,22 @@ export function clearAllRateLimits(): void {
 export function getRateLimitInfo(
     ip: string,
     endpoint: string,
-    config: RateLimitConfig = DEFAULT_CONFIG
+    config?: RateLimitConfig
 ): RateLimitResult | null {
+    const cfg = config || getRateLimitConfig();
     const key = `${ip}:${endpoint}`;
     const entry = rateLimitStore.get(key);
 
     if (!entry) return null;
 
     const now = Date.now();
-    if (entry.windowStart + config.windowMs < now) {
-        return null; // Expired
+    if (entry.windowStart + cfg.windowMs < now) {
+        return null;
     }
 
     return {
-        allowed: entry.count < config.maxRequests,
-        remaining: Math.max(0, config.maxRequests - entry.count),
-        resetAt: new Date(entry.windowStart + config.windowMs)
+        allowed: entry.count < cfg.maxRequests,
+        remaining: Math.max(0, cfg.maxRequests - entry.count),
+        resetAt: new Date(entry.windowStart + cfg.windowMs)
     };
 }

@@ -44,6 +44,7 @@ COPY --from=deps /app/node_modules ./node_modules
 
 # Copy configuration files
 COPY next.config.ts ./
+COPY tailwind.config.ts ./
 COPY tsconfig.json ./
 COPY jest.config.ts ./
 COPY eslint.config.mjs ./
@@ -54,6 +55,7 @@ COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY scripts ./scripts
+COPY migrations ./migrations
 
 # Build
 ENV NODE_ENV=production
@@ -63,9 +65,15 @@ RUN mkdir -p data
 RUN npm rebuild better-sqlite3
 RUN npm rebuild canvas
 RUN npm run lint
+# Run migrations for tests
+RUN npx tsx migrations/run.ts up
 RUN npm test
 
+
 RUN npm run build
+
+# Compile migrations
+RUN npx tsc migrations/*.ts --outDir dist/migrations --target es2020 --module commonjs --skipLibCheck --esModuleInterop
 
 # ============================================================================
 # Stage 3: Runtime (minimal & safe)
@@ -92,9 +100,15 @@ ENV PORT=3000
 RUN useradd -r -u 1001 nextjs
 
 # Copy standalone output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nextjs /app/public ./public
+
+# Copy migrations and entrypoint
+COPY --from=builder --chown=nextjs:nextjs /app/dist/migrations ./migrations
+COPY --chown=nextjs:nextjs docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+RUN find migrations -name "*.ts" -type f -delete
 
 USER nextjs
 
@@ -104,4 +118,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://127.0.0.1:3000/ || exit 1
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

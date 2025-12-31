@@ -1,47 +1,23 @@
 /**
  * PDF rendering utilities - convert PDF pages to images
- * Uses pdfjs-dist (v3.x legacy) for Node.js compatibility
  */
 
 import { createCanvas } from 'canvas';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
 
-// Disable worker for Node.js in v3.x (uses fake worker)
 pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
-// NodeCanvasFactory definition for pdfjs-dist
+// =============================================================================
+// Types
+// =============================================================================
+
 interface CanvasAndContext {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    canvas: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    context: any;
-}
-
-class NodeCanvasFactory {
-    create(width: number, height: number) {
-        const canvas = createCanvas(width, height);
-        const context = canvas.getContext('2d');
-        return {
-            canvas,
-            context,
-        };
-    }
-
-    reset(canvasAndContext: CanvasAndContext, width: number, height: number) {
-        canvasAndContext.canvas.width = width;
-        canvasAndContext.canvas.height = height;
-    }
-
-    destroy(canvasAndContext: CanvasAndContext) {
-        canvasAndContext.canvas.width = 0;
-        canvasAndContext.canvas.height = 0;
-        canvasAndContext.canvas = null;
-        canvasAndContext.context = null;
-    }
+    canvas: ReturnType<typeof createCanvas>;
+    context: ReturnType<ReturnType<typeof createCanvas>['getContext']>;
 }
 
 export interface RenderOptions {
-    scale?: number; // Default 2.0 for good quality
+    scale?: number;
     format?: 'png' | 'jpeg';
 }
 
@@ -50,6 +26,31 @@ export interface PageInfo {
     width: number;
     height: number;
 }
+
+// =============================================================================
+// Canvas Factory
+// =============================================================================
+
+class NodeCanvasFactory {
+    create(width: number, height: number) {
+        const canvas = createCanvas(width, height);
+        return { canvas, context: canvas.getContext('2d') };
+    }
+
+    reset(canvasAndContext: CanvasAndContext, width: number, height: number) {
+        canvasAndContext.canvas.width = width;
+        canvasAndContext.canvas.height = height;
+    }
+
+    destroy(canvasAndContext: CanvasAndContext) {
+        (canvasAndContext as unknown as { canvas: null; context: null }).canvas = null;
+        (canvasAndContext as unknown as { canvas: null; context: null }).context = null;
+    }
+}
+
+// =============================================================================
+// PDF Operations
+// =============================================================================
 
 /**
  * Get the number of pages in a PDF
@@ -91,20 +92,16 @@ export async function renderPage(
     const page = await doc.getPage(pageNumber);
     const viewport = page.getViewport({ scale });
 
-    // Create canvas
     const canvas = createCanvas(viewport.width, viewport.height);
     const context = canvas.getContext('2d');
 
-    // Render page to canvas - cast needed for node-canvas compatibility with pdfjs-dist
     await page.render({
         canvasContext: context,
         viewport,
     } as unknown as Parameters<typeof page.render>[0]).promise;
 
-    // Convert to PNG buffer
     const buffer = canvas.toBuffer('image/png');
 
-    // Cleanup
     page.cleanup();
     doc.destroy();
 
@@ -114,10 +111,7 @@ export async function renderPage(
 /**
  * Get page dimensions without rendering
  */
-export async function getPageInfo(
-    pdfBuffer: Buffer,
-    pageNumber: number
-): Promise<PageInfo> {
+export async function getPageInfo(pdfBuffer: Buffer, pageNumber: number): Promise<PageInfo> {
     const data = new Uint8Array(pdfBuffer);
     const doc = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
 

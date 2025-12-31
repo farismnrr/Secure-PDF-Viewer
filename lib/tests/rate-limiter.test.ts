@@ -2,7 +2,7 @@
  * Unit tests for rate limiting
  */
 
-import { checkRateLimit, resetRateLimit, getRateLimitInfo, clearAllRateLimits } from '../rate-limiter';
+import { checkRateLimit, resetRateLimit, getRateLimitInfo, clearAllRateLimits } from '../services/rate-limiter';
 // Removed db imports as we are no longer using SQLite for rate limiting
 
 describe('Rate Limiter', () => {
