@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: Dependencies (cache-friendly)
 # ============================================================================
-FROM node:20-bookworm-slim AS deps
+FROM node:25-bookworm-slim AS deps
 WORKDIR /app
 
 # Native build deps (ONLY for build)
@@ -24,7 +24,7 @@ RUN npm ci --ignore-scripts
 # ============================================================================
 # Stage 2: Build
 # ============================================================================
-FROM node:20-bookworm-slim AS builder
+FROM node:25-bookworm-slim AS builder
 WORKDIR /app
 
 # Same build deps (must match deps stage)
@@ -91,7 +91,7 @@ RUN npm run build
 # ============================================================================
 # Stage 3: Runtime (minimal & safe)
 # ============================================================================
-FROM node:20-bookworm-slim AS runner
+FROM node:25-bookworm-slim AS runner
 WORKDIR /app
 
 # Runtime libs ONLY
