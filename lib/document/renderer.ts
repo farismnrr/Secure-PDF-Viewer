@@ -61,7 +61,8 @@ class NodeCanvasFactory {
 // Helper for PDF.js options
 const getDocumentOptions = (data: Uint8Array) => ({
     data,
-    useSystemFonts: true,
+    useSystemFonts: false, // Disable system fonts to rely on standard fonts or embedded
+    disableFontFace: true, // Force path rendering for text (critical for Node.js)
     CanvasFactory: NodeCanvasFactory,
     standardFontDataUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts/'),
     cMapUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/cmaps/'),
