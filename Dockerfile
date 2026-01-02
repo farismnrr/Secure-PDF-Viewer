@@ -95,8 +95,8 @@ RUN apt-get update && apt-get install -y \
 
 
 
-# Install Drizzle CLI and TSX for migrations (Global)
-RUN npm install -g drizzle-kit@0.30.4 tsx
+# Install Drizzle CLI, ORM, and TSX for migrations (Global)
+RUN npm install -g drizzle-kit@0.30.4 drizzle-orm@0.39.1 tsx
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
