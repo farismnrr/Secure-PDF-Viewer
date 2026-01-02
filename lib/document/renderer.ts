@@ -4,8 +4,11 @@
 
 import { createCanvas } from 'canvas';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import path from 'path';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+// Fix for "No GlobalWorkerOptions.workerSrc specified" error in Node.js
+// Point to the local worker file in node_modules
+pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
 
 // =============================================================================
 // Types
