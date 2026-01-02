@@ -1,4 +1,4 @@
-import { defineConfig } from 'drizzle-kit';
+
 
 const DB_TYPE = process.env.DB_TYPE || 'sqlite';
 let connectionString = process.env.DATABASE_URL;
@@ -21,11 +21,14 @@ if (!connectionString) {
 
 const isPostgres = DB_TYPE === 'postgres';
 
-export default defineConfig({
+
+// Export configuration object directly to avoid runtime dependency on 'drizzle-kit'
+// which is pruned from Next.js standalone build
+export default {
     schema: './lib/db/schema.ts',
     out: './drizzle',
     dialect: isPostgres ? 'postgresql' : 'sqlite',
     dbCredentials: isPostgres
         ? { url: connectionString }
         : { url: connectionString.replace('file:', '') },
-});
+};
