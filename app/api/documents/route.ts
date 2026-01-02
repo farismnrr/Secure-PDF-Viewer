@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { db, documents } from '@/lib/db';
+import { eq, and, count, desc } from 'drizzle-orm';
 import { encryptBuffer, getMasterKey, hashPassword, generateDocId } from '@/lib/utils/crypto';
 import { extractAuthInfo } from '@/lib/auth/helper';
 import fs from 'fs';
@@ -33,38 +34,43 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(searchParams.get('limit') || '20');
         const offset = (page - 1) * limit;
 
-        // Query documents for this tenant using Prisma
-        const [documents, total] = await Promise.all([
-            prisma.documents.findMany({
-                where: {
-                    tenant_id: tenantId,
-                    status: status
-                },
-                orderBy: { created_at: 'desc' },
-                skip: offset,
-                take: limit
-            }),
-            prisma.documents.count({
-                where: {
-                    tenant_id: tenantId,
-                    status: status
-                }
-            })
+        // Query documents for this tenant using Drizzle
+        const conditions = and(
+            eq(documents.tenantId, tenantId),
+            eq(documents.status, status)
+        );
+
+        const [docs, totalResult] = await Promise.all([
+            db
+                .select()
+                .from(documents)
+                .where(conditions)
+                .orderBy(desc(documents.createdAt))
+                .limit(limit)
+                .offset(offset),
+            db
+                .select({ count: count() })
+                .from(documents)
+                .where(conditions)
         ]);
 
+        const total = totalResult[0]?.count || 0;
+
+
+
         // Format response
-        const formattedDocs = documents.map(doc => ({
+        const formattedDocs = docs.map((doc: any) => ({
             id: doc.id,
-            docId: doc.doc_id,
+            docId: doc.docId,
             title: doc.title,
-            contentType: doc.content_type || 'application/pdf',
-            pageCount: doc.page_count,
-            isEncrypted: doc.is_encrypted,
-            hasPassword: Boolean(doc.password_hash),
+            contentType: doc.contentType || 'application/pdf',
+            pageCount: doc.pageCount,
+            isEncrypted: doc.isEncrypted,
+            hasPassword: Boolean(doc.passwordHash),
             status: doc.status,
-            createdBy: doc.created_by,
-            createdAt: doc.created_at.toISOString(),
-            updatedAt: doc.updated_at.toISOString()
+            createdBy: doc.createdBy,
+            createdAt: doc.createdAt.toISOString(),
+            updatedAt: doc.updatedAt.toISOString()
         }));
 
         return NextResponse.json({
@@ -188,20 +194,20 @@ export async function POST(request: NextRequest) {
             showSessionId: true
         });
 
-        // Insert into database using Prisma
-        await prisma.documents.create({
-            data: {
-                doc_id: docId,
-                tenant_id: tenantId,
-                title: title.trim(),
-                encrypted_path: `storage/${userId}/${filename}`,
-                content_type: file.type,
-                is_encrypted: shouldEncrypt,
-                password_hash: passwordHash,
-                watermark_policy: watermarkPolicy,
-                status: 'active',
-                created_by: userId
-            }
+        // Insert into database using Drizzle
+        await db.insert(documents).values({
+            docId: docId,
+            tenantId: tenantId,
+            title: title.trim(),
+            encryptedPath: `storage/${userId}/${filename}`,
+            contentType: file.type,
+            isEncrypted: shouldEncrypt,
+            passwordHash: passwordHash,
+            watermarkPolicy: watermarkPolicy,
+            status: 'active',
+            createdBy: userId,
+            createdAt: new Date(),
+            updatedAt: new Date()
         });
 
         return NextResponse.json({

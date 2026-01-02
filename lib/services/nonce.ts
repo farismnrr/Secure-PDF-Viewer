@@ -2,7 +2,8 @@
  * Nonce management - single-use tokens for document access
  */
 
-import { prisma } from '../prisma';
+import { db, nonces } from '../db';
+import { eq, and, lt } from 'drizzle-orm';
 import { generateNonce as cryptoGenerateNonce, generateSessionId } from '../utils';
 
 // =============================================================================
@@ -18,11 +19,11 @@ export interface NonceData {
 
 export interface NonceRecord {
     id: number;
-    doc_id: string;
+    docId: string;
     nonce: string;
-    session_id: string;
+    sessionId: string;
     used: boolean;
-    created_at: Date;
+    createdAt: Date;
 }
 
 // =============================================================================
@@ -37,14 +38,12 @@ export async function mintNonce(docId: string): Promise<NonceData> {
     const sessionId = generateSessionId();
     const issuedAt = new Date();
 
-    await prisma.nonces.create({
-        data: {
-            doc_id: docId,
-            nonce: nonce,
-            session_id: sessionId,
-            created_at: issuedAt,
-            used: false
-        }
+    await db.insert(nonces).values({
+        docId: docId,
+        nonce: nonce,
+        sessionId: sessionId,
+        createdAt: issuedAt,
+        used: false
     });
 
     return { nonce, sessionId, docId, issuedAt: issuedAt.toISOString() };
@@ -54,14 +53,16 @@ export async function mintNonce(docId: string): Promise<NonceData> {
  * Validate a nonce without consuming it
  */
 export async function isNonceValid(docId: string, nonce: string): Promise<boolean> {
-    const record = await prisma.nonces.findUnique({
-        where: { nonce },
-    });
+    const [record] = await db
+        .select()
+        .from(nonces)
+        .where(eq(nonces.nonce, nonce))
+        .limit(1);
 
     if (!record) return false;
 
     // Check fields matches
-    if (record.doc_id !== docId) return false;
+    if (record.docId !== docId) return false;
     if (record.used) return false;
 
     return true;
@@ -73,40 +74,41 @@ export async function isNonceValid(docId: string, nonce: string): Promise<boolea
  */
 export async function validateAndConsumeNonce(docId: string, nonce: string): Promise<string | null> {
 
-    // Use transaction to check and update atomically? 
-    // Or just simple check first. Prisma update w/ where clause.
-    // If we use findUnique, we can check.
-
-    // Since nonce is unique, we can try to update directly if unused.
-    // updateMany returns count. update throws if not found.
-
-    // Logic: Find unused nonce matching docId.
-    const record = await prisma.nonces.findFirst({
-        where: {
-            nonce,
-            doc_id: docId,
-            used: false
-        }
-    });
+    // Find unused nonce matching docId
+    const [record] = await db
+        .select()
+        .from(nonces)
+        .where(
+            and(
+                eq(nonces.nonce, nonce),
+                eq(nonces.docId, docId),
+                eq(nonces.used, false)
+            )
+        )
+        .limit(1);
 
     if (!record) return null;
 
     // Mark as used
-    await prisma.nonces.update({
-        where: { id: record.id },
-        data: { used: true }
-    });
+    await db
+        .update(nonces)
+        .set({ used: true })
+        .where(eq(nonces.id, record.id));
 
-    return record.session_id;
+    return record.sessionId;
 }
 
 /**
  * Get nonce info without consuming
  */
 export async function getNonceInfo(nonce: string): Promise<NonceRecord | null> {
-    return prisma.nonces.findUnique({
-        where: { nonce }
-    });
+    const [record] = await db
+        .select()
+        .from(nonces)
+        .where(eq(nonces.nonce, nonce))
+        .limit(1);
+
+    return record || null;
 }
 
 /**
@@ -116,13 +118,11 @@ export async function cleanupOldNonces(olderThanDays: number = 7): Promise<numbe
     const dateThreshold = new Date();
     dateThreshold.setDate(dateThreshold.getDate() - olderThanDays);
 
-    const result = await prisma.nonces.deleteMany({
-        where: {
-            created_at: {
-                lt: dateThreshold
-            }
-        }
-    });
+    const result = await db
+        .delete(nonces)
+        .where(lt(nonces.createdAt, dateThreshold));
 
-    return result.count;
+    // Drizzle returns affected rows count differently based on driver
+    // For now, we return 0 as placeholder (can be improved with raw SQL if needed)
+    return result.rowCount || 0;
 }

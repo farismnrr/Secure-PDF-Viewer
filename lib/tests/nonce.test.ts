@@ -3,16 +3,19 @@
  */
 
 import { mintNonce, isNonceValid, validateAndConsumeNonce, getNonceInfo } from '../services/nonce';
-import { prisma } from '../prisma';
+import { db, nonces } from '../db';
 
 describe('Nonce Management', () => {
     beforeEach(async () => {
         // Clean up table before each test
-        await prisma.nonces.deleteMany();
+        await db.delete(nonces);
     });
 
+    // In Drizzle/better-sqlite3, we don't strictly need to disconnect for in-memory tests,
+    // but closeDatabase() could be called if we exported it.
+    // For now, removing prisma specific disconnect.
     afterAll(async () => {
-        await prisma.$disconnect();
+        // Optional cleanup
     });
 
     describe('mintNonce', () => {
@@ -87,8 +90,8 @@ describe('Nonce Management', () => {
             const info = await getNonceInfo(nonce);
 
             expect(info).not.toBeNull();
-            expect(info?.doc_id).toBe(docId);
-            expect(info?.session_id).toBe(sessionId);
+            expect(info?.docId).toBe(docId);
+            expect(info?.sessionId).toBe(sessionId);
             expect(info?.used).toBe(false);
         });
 

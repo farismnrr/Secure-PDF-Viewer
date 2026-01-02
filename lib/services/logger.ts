@@ -2,7 +2,8 @@
  * Access logging service
  */
 
-import { prisma } from '../prisma';
+import { db, accessLogs } from '../db';
+import { eq, and, gte, sql, count } from 'drizzle-orm';
 
 // =============================================================================
 // Types
@@ -10,13 +11,13 @@ import { prisma } from '../prisma';
 
 export interface LogEntry {
     id: number;
-    doc_id: string;
-    session_id: string | null;
+    docId: string;
+    sessionId: string | null;
     ip: string | null;
-    user_agent: string | null;
+    userAgent: string | null;
     action: string;
     metadata: string | null;
-    created_at: Date;
+    createdAt: Date;
 }
 
 export type LogAction =
@@ -50,15 +51,14 @@ export async function logAccess(
 ): Promise<void> {
     const metadataStr = options.metadata ? JSON.stringify(options.metadata) : null;
 
-    await prisma.access_logs.create({
-        data: {
-            doc_id: docId,
-            session_id: options.sessionId,
-            ip: options.ip,
-            user_agent: options.userAgent,
-            action: action,
-            metadata: metadataStr
-        }
+    await db.insert(accessLogs).values({
+        docId: docId,
+        sessionId: options.sessionId || null,
+        ip: options.ip || null,
+        userAgent: options.userAgent || null,
+        action: action,
+        metadata: metadataStr,
+        createdAt: new Date()
     });
 }
 
@@ -71,25 +71,29 @@ export async function getAccessLogs(
 ): Promise<LogEntry[]> {
     const { limit = 100, offset = 0, action } = options;
 
-    return prisma.access_logs.findMany({
-        where: {
-            doc_id: docId,
-            ...(action && { action })
-        },
-        orderBy: { created_at: 'desc' },
-        take: limit,
-        skip: offset
-    });
+    const conditions = [eq(accessLogs.docId, docId)];
+    if (action) {
+        conditions.push(eq(accessLogs.action, action));
+    }
+
+    return db
+        .select()
+        .from(accessLogs)
+        .where(and(...conditions))
+        .orderBy(sql`${accessLogs.createdAt} DESC`)
+        .limit(limit)
+        .offset(offset);
 }
 
 /**
  * Get logs by session ID
  */
 export async function getLogsBySession(sessionId: string): Promise<LogEntry[]> {
-    return prisma.access_logs.findMany({
-        where: { session_id: sessionId },
-        orderBy: { created_at: 'asc' }
-    });
+    return db
+        .select()
+        .from(accessLogs)
+        .where(eq(accessLogs.sessionId, sessionId))
+        .orderBy(sql`${accessLogs.createdAt} ASC`);
 }
 
 /**
@@ -103,39 +107,28 @@ export async function getSuspiciousActivity(
     const dateThreshold = new Date();
     dateThreshold.setMinutes(dateThreshold.getMinutes() - sinceMinutes);
 
-    const logs = await prisma.access_logs.groupBy({
-        by: ['ip'],
-        _count: {
-            _all: true
-        },
-        where: {
-            action: 'invalid_nonce',
-            created_at: {
-                gte: dateThreshold
-            }
-        },
-        having: {
-            ip: {
-                _count: {
-                    gte: minInvalidAttempts
-                }
-            }
-        },
-        orderBy: {
-            _count: {
-                ip: 'desc'
-            }
-        }
-    });
+    // Use Drizzle's groupBy with having
+    const results = await db
+        .select({
+            ip: accessLogs.ip,
+            count: count()
+        })
+        .from(accessLogs)
+        .where(
+            and(
+                eq(accessLogs.action, 'invalid_nonce'),
+                gte(accessLogs.createdAt, dateThreshold)
+            )
+        )
+        .groupBy(accessLogs.ip)
+        .having(sql`count(*) >= ${minInvalidAttempts}`)
+        .orderBy(sql`count(*) DESC`);
 
-    // Handle null ip? (ip is String? in schema). groupBy will skip nulls usually or group them.
-    // We filter nulls if needed, but schema allows ip nullable.
-    // Mapped to { ip, count }
-
-    return logs
-        .filter(l => l.ip !== null)
-        .map(l => ({
-            ip: l.ip as string,
-            count: l._count._all
+    // Filter out null IPs
+    return results
+        .filter((r: any) => r.ip !== null)
+        .map((r: any) => ({
+            ip: r.ip as string,
+            count: Number(r.count)
         }));
 }

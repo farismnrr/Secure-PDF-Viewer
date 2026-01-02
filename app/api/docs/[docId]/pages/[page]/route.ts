@@ -84,7 +84,7 @@ export async function GET(
                     { status: 401 }
                 );
             }
-            sessionId = nonceInfo.session_id;
+            sessionId = nonceInfo.sessionId;
 
             // Verify the nonce was consumed (used for page 1)
             if (!nonceInfo.used) {

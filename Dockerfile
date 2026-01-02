@@ -56,7 +56,8 @@ COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY scripts ./scripts
-COPY prisma ./prisma
+COPY scripts ./scripts
+# COPY prisma ./prisma # Prisma removed
 
 # Build
 ENV NODE_ENV=production
@@ -68,22 +69,11 @@ RUN npm rebuild better-sqlite3
 RUN npm rebuild canvas
 RUN npm run lint
 
-# Run Unit Tests (using SQLite ephemeral DB)
-# 1. Switch to SQLite
-RUN cat prisma/schema.sqlite.prisma prisma/schema.base.prisma > prisma/schema.prisma
-ENV DATABASE_URL="file:./test.db"
-# 2. Generate Client for SQLite
-RUN npx prisma generate
-# 3. Push schema to test DB
-RUN npx prisma db push
-# 4. Run Tests
+# Run Unit Tests
 RUN npm test
 
-# Clean up and Prepare for Production Build (Postgres)
-# 1. Switch back to Postgres
-RUN cat prisma/schema.postgres.prisma prisma/schema.base.prisma > prisma/schema.prisma
-# 2. Generate Client for Postgres (Implicitly done by npm run build -> prisma generate, but good to be explicit)
-RUN npx prisma generate
+# Build
+RUN npm run build
 
 RUN npm run build
 
@@ -104,8 +94,8 @@ RUN apt-get update && apt-get install -y \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Prisma CLI for removals/migrations (Global)
-RUN npm install -g prisma@6.19.1
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 
 ENV NODE_ENV=production
@@ -123,7 +113,6 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 
 COPY --chown=nextjs:nextjs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
-COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 
 # Create storage and data directories with correct permissions
 RUN mkdir -p storage data

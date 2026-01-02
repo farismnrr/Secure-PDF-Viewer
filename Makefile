@@ -32,20 +32,28 @@ help:
 
 # --- Database Configuration (Dynamic Schema) ---
 
-setup-sqlite:
-	@echo "🔧 Configuring Prisma for SQLite (Local)..."
-	@cat prisma/schema.sqlite.prisma prisma/schema.base.prisma > prisma/schema.prisma
-	@echo "✅/prisma/schema.prisma set to SQLite"
+# --- Database Configuration (Drizzle) ---
 
-setup-postgres:
-	@echo "🔧 Configuring Prisma for PostgreSQL (Docker)..."
-	@cat prisma/schema.postgres.prisma prisma/schema.base.prisma > prisma/schema.prisma
-	@echo "✅/prisma/schema.prisma set to PostgreSQL"
+# Drizzle doesn't require schema concatenation, so these targets are simplified or removed.
+# But we can keep them for convenience aliases if we want.
+
+db-generate:
+	@echo "📝 Generating database migrations..."
+	npx drizzle-kit generate
+
+db-push:
+	@echo "🚀 Pushing schema to database..."
+	npx drizzle-kit push
+
+db-studio:
+	@echo "🎨 Opening Drizzle Studio..."
+	npx drizzle-kit studio
 
 # --- Development ---
 
 # Run development server with hot reload (Uses SQLite)
-dev: setup-sqlite generate
+# Run development server with hot reload
+dev:
 	@echo "🚀 Starting development server with hot reload..."
 	npm run dev
 
@@ -67,12 +75,12 @@ install:
 # --- Testing ---
 
 # Run all unit tests
-test: setup-sqlite
+test:
 	@echo "🧪 Running unit tests..."
 	npm test
 
 # Run tests in watch mode
-test-watch: setup-sqlite
+test-watch:
 	@echo "🧪 Running tests in watch mode..."
 	npm run test:watch
 
@@ -148,7 +156,7 @@ DOCKER_IMAGE_NAME = secure-file-viewer
 GHCR_REPO = ghcr.io/farismnrr/secure-file-viewer
 
 # Build Docker image
-build-docker: setup-postgres
+build-docker:
 	@read -p "Enter Docker tag (default: latest): " tag; \
 	tag=$${tag:-latest}; \
 	echo "🐳 Building Docker image with tag: $$tag..."; \
@@ -237,23 +245,18 @@ stop-compose:
 compose-logs:
 	docker compose logs -f
 
-# --- Database Migrations (Prisma) ---
+# --- Database Migrations (Drizzle) ---
 
-# Migrate Up (Apply)
-migrate-up: setup-sqlite
-	npx prisma migrate dev
+# Migrate Up (Push)
+migrate-up:
+	npx drizzle-kit push
 
-# Migrate Down (Drop/Reset)
-migrate-down: setup-sqlite
-	npx prisma migrate reset --force
+# Migrate Down/Reset is not directly supported by drizzle-kit push exactly like prisma reset
+# but for now we can rely on manual file deletion for sqlite or dropping tables for pg.
 
-# Open Prisma Studio
-studio: setup-sqlite
-	npx prisma studio
-
-# Generate client
-generate:
-	npx prisma generate
+# Open Drizzle Studio
+studio:
+	npx drizzle-kit studio
 
 
 

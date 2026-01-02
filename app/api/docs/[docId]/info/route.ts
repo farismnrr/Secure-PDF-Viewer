@@ -93,7 +93,7 @@ export async function GET(
             docId: document.docId,
             title: document.title,
             pageCount,
-            sessionId: nonceInfo?.session_id
+            sessionId: nonceInfo?.sessionId
         });
 
     } catch {

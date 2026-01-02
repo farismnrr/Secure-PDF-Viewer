@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../prisma';
+import { db, documents } from '../db';
+import { eq } from 'drizzle-orm';
 
 // =============================================================================
 // Types
@@ -55,27 +56,29 @@ function saveRegistry(registry: RegistryData): void {
  * Checks database first, then legacy registry.json
  */
 export async function getDocument(docId: string): Promise<DocumentMetadata | null> {
-    // Try Prisma database first
+    // Try database first
     try {
-        const doc = await prisma.documents.findUnique({
-            where: { doc_id: docId }
-        });
+        const [doc] = await db
+            .select()
+            .from(documents)
+            .where(eq(documents.docId, docId))
+            .limit(1);
 
         if (doc) {
-            const watermarkPolicy = doc.watermark_policy
-                ? JSON.parse(doc.watermark_policy)
+            const watermarkPolicy = doc.watermarkPolicy
+                ? JSON.parse(doc.watermarkPolicy)
                 : { showIp: true, showTimestamp: true, showSessionId: true };
 
             return {
-                docId: doc.doc_id,
+                docId: doc.docId,
                 title: doc.title,
-                encryptedPath: doc.encrypted_path,
-                contentType: doc.content_type || 'application/pdf',
-                pageCount: doc.page_count ?? undefined,
+                encryptedPath: doc.encryptedPath,
+                contentType: doc.contentType || 'application/pdf',
+                pageCount: doc.pageCount ?? undefined,
                 watermarkPolicy,
                 status: doc.status as 'active' | 'inactive',
-                createdAt: doc.created_at.toISOString(),
-                updatedAt: doc.updated_at.toISOString()
+                createdAt: doc.createdAt.toISOString(),
+                updatedAt: doc.updatedAt.toISOString()
             };
         }
     } catch {
