@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     try {
         const { tenantId, userId } = extractAuthInfo(request);
 
-        if (!tenantId || !userId) {
+        if (!tenantId || !userId || tenantId === 'undefined' || userId === 'undefined') {
             return NextResponse.json(
                 { status: false, message: 'Unauthorized' },
                 { status: 401 }
@@ -163,14 +163,14 @@ export async function POST(request: NextRequest) {
             fileBuffer = encryptBuffer(fileBuffer, masterKey) as Buffer;
         }
 
-        // Save to storage
+        // Save to storage - organize by user folder
         const filename = `${docId}.${fileExt}${shouldEncrypt ? '.enc' : ''}`;
-        const storagePath = path.join(process.cwd(), 'storage', filename);
+        const userStorageDir = path.join(process.cwd(), 'storage', userId);
+        const storagePath = path.join(userStorageDir, filename);
 
-        // Ensure storage directory exists
-        const storageDir = path.dirname(storagePath);
-        if (!fs.existsSync(storageDir)) {
-            fs.mkdirSync(storageDir, { recursive: true });
+        // Ensure user storage directory exists
+        if (!fs.existsSync(userStorageDir)) {
+            fs.mkdirSync(userStorageDir, { recursive: true });
         }
 
         fs.writeFileSync(storagePath, fileBuffer);
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
                 doc_id: docId,
                 tenant_id: tenantId,
                 title: title.trim(),
-                encrypted_path: `storage/${filename}`,
+                encrypted_path: `storage/${userId}/${filename}`,
                 content_type: file.type,
                 is_encrypted: shouldEncrypt,
                 password_hash: passwordHash,

@@ -141,7 +141,7 @@ export default function FullscreenGuard({ children, onFullscreenExit }: Fullscre
                     <p>This document requires fullscreen mode for security.</p>
                     <button
                         onClick={enterFullscreen}
-                        className="enter-fullscreen-btn mt-6 px-8 py-4 bg-white text-black font-bold text-lg rounded-xl hover:bg-gray-200 transition-all flex items-center gap-3 mx-auto shadow-lg active:scale-95"
+                        className="mt-6 px-8 py-4 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-3 mx-auto shadow-sm active:scale-95"
                     >
                         <span className="text-xl">🛡️</span>
                         Enter Secure View

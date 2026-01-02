@@ -82,10 +82,10 @@ export function generateSessionId(): string {
 }
 
 /**
- * Generate a random document ID
+ * Generate a UUID document ID
  */
 export function generateDocId(): string {
-    return `doc-${crypto.randomBytes(8).toString('hex')}`;
+    return crypto.randomUUID();
 }
 
 // =============================================================================

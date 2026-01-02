@@ -83,6 +83,7 @@ The server will be available at `http://localhost:3000`.
 | `make stop-docker` | Stop Docker container |
 | `make push` | Trigger CI/CD build |
 | `make push-local` | Build and push multi-arch image |
+| `make update` | Update running container (Watchtower) |
 | `make migrate-up` | Run database migrations |
 | `make key` | Generate encryption key |
 | `make encrypt` | Encrypt a PDF file |

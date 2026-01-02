@@ -24,6 +24,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const router = useRouter();
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
 
   // Re-check auth state on pathname change
   useEffect(() => {
@@ -35,6 +36,31 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
     if (newState !== isLoggedIn) {
       setIsLoggedIn(newState);
     }
+
+    // Verify token and fetch user info
+    if (token) {
+      const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL || 'https://sso.farismunir.my.id';
+      fetch(`${ssoUrl}/auth/verify`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error('Unauthorized');
+          }
+          return res.json();
+        })
+        .then(data => {
+          if (data.data) {
+            setUser(data.data);
+          }
+        })
+        .catch(() => {
+          // Silently fail or handle error appropriately without spamming console
+        });
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
@@ -129,19 +155,38 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
         ))}
       </div>
 
-      <div className="p-3 border-t border-border space-y-2 bg-muted/20">
-        {isLoggedIn && (
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-start text-destructive hover:text-white hover:bg-destructive transition-colors duration-200 cursor-pointer",
-              isCollapsed && "justify-center px-0"
-            )}
-            onClick={handleLogout}
-          >
-            <LogOut className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
-            {!isCollapsed && <span>Sign Out</span>}
-          </Button>
+      <div className="p-3 border-t border-border bg-muted/20">
+        {!isCollapsed && user ? (
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="overflow-hidden">
+              <p className="text-sm font-medium truncate text-foreground" title={user.email}>{user.username}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="text-destructive hover:text-white hover:bg-destructive shrink-0 h-8 w-8"
+              title="Sign Out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          isLoggedIn && (
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start text-destructive hover:text-white hover:bg-destructive transition-colors duration-200 cursor-pointer",
+                isCollapsed && "justify-center px-0"
+              )}
+              onClick={handleLogout}
+              title={isCollapsed ? `Sign Out (${user?.username || 'User'})` : undefined}
+            >
+              <LogOut className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+              {!isCollapsed && <span>Sign Out</span>}
+            </Button>
+          )
         )}
       </div>
     </aside>

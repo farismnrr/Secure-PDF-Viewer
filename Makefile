@@ -1,6 +1,6 @@
 # Secure File Viewer - Makefile for Development Automation
 
-.PHONY: help dev build start test test-watch lint clean install encrypt add key build-docker start-docker docker-push kill migrate-up migrate-down migrate-fresh migrate-create migrate-status
+.PHONY: help dev build start test test-watch lint clean install encrypt add key build-docker start-docker docker-push kill migrate-up migrate-down migrate-fresh migrate-create migrate-status update
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  make stop-compose     - Stop services via Docker Compose"
 	@echo "  make push             - Commit & Push changes (Triggers CI)"
 	@echo "  make push-local       - Push local Docker image to GHCR"
+	@echo "  make update           - Update running container using Watchtower"
 	@echo "  make clean            - Clean build artifacts and cache"
 	@echo "  make kill             - Kill process on port 3000"
 	@echo "  make key              - Generate encryption key"
@@ -208,6 +209,16 @@ push-local: build-docker
 	fi; \
 	docker buildx build --platform linux/amd64,linux/arm64 -t $(GHCR_REPO):$$tag --push .; \
 	echo "✅ Image pushed to $(GHCR_REPO):$$tag"
+
+# Update running container using Watchtower
+update:
+	@echo "🔄 Checking for updates with Watchtower..."
+	docker run --rm \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		--env DOCKER_API_VERSION=1.45 \
+		containrrr/watchtower \
+		--run-once \
+		$(DOCKER_IMAGE_NAME)
 
 # --- Docker Compose Management ---
 

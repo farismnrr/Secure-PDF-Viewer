@@ -20,7 +20,7 @@ export function extractAuthInfo(request: NextRequest): { tenantId: string | null
     const directTenantId = request.headers.get('X-Tenant-Id');
     const directUserId = request.headers.get('X-User-Id');
 
-    if (directTenantId && directUserId) {
+    if (directTenantId && directUserId && directTenantId !== 'undefined' && directUserId !== 'undefined') {
         return { tenantId: directTenantId, userId: directUserId };
     }
 
@@ -37,7 +37,7 @@ export function extractAuthInfo(request: NextRequest): { tenantId: string | null
         // In production, you should verify the token
         const decoded = jwt.decode(token) as TokenPayload | null;
 
-        if (decoded && decoded.tenant_id && decoded.sub) {
+        if (decoded && decoded.tenant_id && decoded.sub && decoded.sub !== 'undefined' && decoded.tenant_id !== 'undefined') {
             return {
                 tenantId: decoded.tenant_id,
                 userId: decoded.sub
