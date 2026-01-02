@@ -58,8 +58,12 @@ export async function GET(request: NextRequest) {
 
 
 
+
         // Format response
-        const formattedDocs = docs.map((doc: any) => ({
+        // Define inferred type for reliability
+        type Document = typeof documents.$inferSelect;
+
+        const formattedDocs = docs.map((doc: Document) => ({
             id: doc.id,
             docId: doc.docId,
             title: doc.title,

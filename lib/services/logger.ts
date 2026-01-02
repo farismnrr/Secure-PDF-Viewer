@@ -126,8 +126,8 @@ export async function getSuspiciousActivity(
 
     // Filter out null IPs
     return results
-        .filter((r: any) => r.ip !== null)
-        .map((r: any) => ({
+        .filter((r: { ip: string | null }) => r.ip !== null)
+        .map((r: { ip: string; count: number | string }) => ({
             ip: r.ip as string,
             count: Number(r.count)
         }));

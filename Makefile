@@ -272,7 +272,7 @@ clean:
 # Deep clean (includes node_modules)
 clean-all: clean
 	@echo "🧹 Deep cleaning (including node_modules)..."
-	@rm -rf node_modules
+	@sudo rm -rf node_modules
 	@echo "✅ Deep clean completed. Run 'make install' to reinstall."
 
 # Kill process on port 3000
