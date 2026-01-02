@@ -70,7 +70,7 @@ RUN npm run lint
 
 # Run Unit Tests (using SQLite ephemeral DB)
 # 1. Switch to SQLite
-RUN cat prisma/schema.base.prisma prisma/schema.sqlite.prisma > prisma/schema.prisma
+RUN cat prisma/schema.sqlite.prisma prisma/schema.base.prisma > prisma/schema.prisma
 ENV DATABASE_URL="file:./test.db"
 # 2. Generate Client for SQLite
 RUN npx prisma generate
@@ -81,7 +81,7 @@ RUN npm test
 
 # Clean up and Prepare for Production Build (Postgres)
 # 1. Switch back to Postgres
-RUN cat prisma/schema.base.prisma prisma/schema.postgres.prisma > prisma/schema.prisma
+RUN cat prisma/schema.postgres.prisma prisma/schema.base.prisma > prisma/schema.prisma
 # 2. Generate Client for Postgres (Implicitly done by npm run build -> prisma generate, but good to be explicit)
 RUN npx prisma generate
 
