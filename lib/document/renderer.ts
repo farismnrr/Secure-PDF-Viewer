@@ -8,10 +8,7 @@ import path from 'path';
 
 // Fix for polyfills needed by PDF.js v4 in Node.js
 if (typeof global !== 'undefined') {
-    (global as any).Image = Image;
-    (global as any).ImageData = ImageData;
-    (global as any).DOMMatrix = DOMMatrix;
-    (global as any).Path2D = Path2D;
+    Object.assign(global, { Image, ImageData, DOMMatrix, Path2D });
 }
 
 // Fix for "No GlobalWorkerOptions.workerSrc specified" error in Node.js
