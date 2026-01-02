@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   // External packages for server-side
-  serverExternalPackages: ['better-sqlite3', 'canvas', 'sharp', 'pdfjs-dist'],
+  serverExternalPackages: ['better-sqlite3', '@napi-rs/canvas', 'sharp', 'pdfjs-dist'],
 
   // Empty turbopack config to silence warning
   turbopack: {},
