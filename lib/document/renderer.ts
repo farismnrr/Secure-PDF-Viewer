@@ -2,9 +2,14 @@
  * PDF rendering utilities - convert PDF pages to images
  */
 
-import { createCanvas } from 'canvas';
+import { createCanvas, Image } from 'canvas';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
 import path from 'path';
+
+// Fix for "Image or Canvas expected" error in Node.js
+if (typeof global !== 'undefined') {
+    (global as any).Image = Image;
+}
 
 // Fix for "No GlobalWorkerOptions.workerSrc specified" error in Node.js
 // Point to the local worker file in node_modules
@@ -63,7 +68,7 @@ const getDocumentOptions = (data: Uint8Array) => ({
     data,
     useSystemFonts: false, // Disable system fonts to rely on standard fonts or embedded
     disableFontFace: true, // Force path rendering for text (critical for Node.js)
-    CanvasFactory: NodeCanvasFactory,
+    canvasFactory: new NodeCanvasFactory(), // lowercase 'c' and must be an instance
     standardFontDataUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts/'),
     cMapUrl: path.join(process.cwd(), 'node_modules/pdfjs-dist/cmaps/'),
     cMapPacked: true,
