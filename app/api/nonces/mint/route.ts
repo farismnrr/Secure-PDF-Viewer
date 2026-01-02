@@ -8,7 +8,8 @@ import { mintNonce } from '@/lib/services/nonce';
 import { getDocument } from '@/lib/document/registry';
 import { checkRateLimit } from '@/lib/services/rate-limiter';
 import { logAccess } from '@/lib/services/logger';
-import { prisma } from '@/lib/prisma';
+import { db, documents } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import { verifyPassword } from '@/lib/utils/crypto';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if document exists using registry (which uses Prisma now)
+        // Check if document exists using registry (which uses Drizzle now)
         const document = await getDocument(docId);
         if (!document || document.status !== 'active') {
             return NextResponse.json(
@@ -56,13 +57,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Check password protection
-        // We can query prisma directly for password_hash to confirm
-        const dbDoc = await prisma.documents.findUnique({
-            where: { doc_id: docId },
-            select: { password_hash: true }
-        });
+        // We can query database directly for passwordHash to confirm
+        const [dbDoc] = await db
+            .select({ passwordHash: documents.passwordHash })
+            .from(documents)
+            .where(eq(documents.docId, docId))
+            .limit(1);
 
-        if (dbDoc && dbDoc.password_hash) {
+        if (dbDoc && dbDoc.passwordHash) {
             const { password } = body;
             if (!password) {
                 return NextResponse.json(
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            const isValid = await verifyPassword(password, dbDoc.password_hash);
+            const isValid = await verifyPassword(password, dbDoc.passwordHash);
 
             if (!isValid) {
                 await logAccess(docId, 'auth_fail', { ip });

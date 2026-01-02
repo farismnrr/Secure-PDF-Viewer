@@ -6,7 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { db, documents } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import { hashPassword } from '@/lib/utils/crypto';
 import { extractAuthInfo } from '@/lib/auth/helper';
 import fs from 'fs';
@@ -32,14 +33,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             );
         }
 
-        const document = await prisma.documents.findUnique({
-            where: {
-                doc_id: docId
-            }
-        });
+        const [document] = await db
+            .select()
+            .from(documents)
+            .where(eq(documents.docId, docId))
+            .limit(1);
 
         // Ensure tenant match
-        if (!document || document.tenant_id !== tenantId) {
+        if (!document || document.tenantId !== tenantId) {
             return NextResponse.json(
                 { status: false, message: 'Document not found' },
                 { status: 404 }
@@ -49,8 +50,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // Parse watermark policy
         let watermarkPolicy = null;
         try {
-            watermarkPolicy = document.watermark_policy
-                ? JSON.parse(document.watermark_policy)
+            watermarkPolicy = document.watermarkPolicy
+                ? JSON.parse(document.watermarkPolicy)
                 : null;
         } catch {
             // Ignore parse errors
@@ -60,18 +61,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             status: true,
             data: {
                 id: document.id,
-                docId: document.doc_id,
+                docId: document.docId,
                 title: document.title,
-                contentType: document.content_type,
-                pageCount: document.page_count,
-                isEncrypted: document.is_encrypted,
-                hasPassword: Boolean(document.password_hash),
+                contentType: document.contentType,
+                pageCount: document.pageCount,
+                isEncrypted: document.isEncrypted,
+                hasPassword: Boolean(document.passwordHash),
                 watermarkPolicy,
                 status: document.status,
-                createdBy: document.created_by,
-                createdAt: document.created_at,
-                updatedAt: document.updated_at,
-                viewUrl: `/v/${document.doc_id}`
+                createdBy: document.createdBy,
+                createdAt: document.createdAt,
+                updatedAt: document.updatedAt,
+                viewUrl: `/v/${document.docId}`
             }
         });
     } catch {
@@ -100,11 +101,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check document exists and belongs to tenant
-        const existing = await prisma.documents.findUnique({
-            where: { doc_id: docId }
-        });
+        const [existing] = await db
+            .select()
+            .from(documents)
+            .where(eq(documents.docId, docId))
+            .limit(1);
 
-        if (!existing || existing.tenant_id !== tenantId) {
+        if (!existing || existing.tenantId !== tenantId) {
             return NextResponse.json(
                 { status: false, message: 'Document not found' },
                 { status: 404 }
@@ -130,34 +133,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             }
             updateData.status = status;
         }
-        if (watermarkPolicy !== undefined) updateData.watermark_policy = JSON.stringify(watermarkPolicy);
+        if (watermarkPolicy !== undefined) updateData.watermarkPolicy = JSON.stringify(watermarkPolicy);
 
         // Handle password update
         if (body.password !== undefined) {
             if (body.password === '' || body.password === null) {
                 // Remove password
-                updateData.password_hash = null;
+                updateData.passwordHash = null;
                 // Optionally disable encryption flag if it implies password? 
                 // Legacy code did `is_encrypted = 0`.
-                updateData.is_encrypted = false;
+                updateData.isEncrypted = false;
             } else {
                 // Set new password
-                updateData.password_hash = await hashPassword(body.password);
-                updateData.is_encrypted = true;
+                updateData.passwordHash = await hashPassword(body.password);
+                updateData.isEncrypted = true;
             }
         }
 
-        if (Object.keys(updateData).length <= 1) { // 1 because updated_at is always there
+        if (Object.keys(updateData).length <= 1) { // 1 because updatedAt is always there
             return NextResponse.json(
                 { status: false, message: 'No fields to update' },
                 { status: 400 }
             );
         }
 
-        await prisma.documents.update({
-            where: { doc_id: docId },
-            data: updateData
-        });
+        await db
+            .update(documents)
+            .set(updateData)
+            .where(eq(documents.docId, docId));
 
         return NextResponse.json({
             status: true,
@@ -189,11 +192,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check document exists and belongs to tenant
-        const existing = await prisma.documents.findUnique({
-            where: { doc_id: docId }
-        });
+        const [existing] = await db
+            .select()
+            .from(documents)
+            .where(eq(documents.docId, docId))
+            .limit(1);
 
-        if (!existing || existing.tenant_id !== tenantId) {
+        if (!existing || existing.tenantId !== tenantId) {
             return NextResponse.json(
                 { status: false, message: 'Document not found' },
                 { status: 404 }
@@ -206,15 +211,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         if (hardDelete) {
             // Delete file from storage
-            const filePath = path.join(process.cwd(), existing.encrypted_path);
+            const filePath = path.join(process.cwd(), existing.encryptedPath);
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
 
             // Delete from database
-            await prisma.documents.delete({
-                where: { doc_id: docId }
-            });
+            await db
+                .delete(documents)
+                .where(eq(documents.docId, docId));
 
             return NextResponse.json({
                 status: true,
@@ -223,13 +228,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         }
 
         // Soft delete - just update status
-        await prisma.documents.update({
-            where: { doc_id: docId },
-            data: {
+        await db
+            .update(documents)
+            .set({
                 status: 'inactive',
-                updated_at: new Date()
-            }
-        });
+                updatedAt: new Date()
+            })
+            .where(eq(documents.docId, docId));
 
         return NextResponse.json({
             status: true,

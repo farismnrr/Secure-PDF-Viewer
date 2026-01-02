@@ -16,7 +16,7 @@ A production-ready, secure document viewer for encrypted files. Built with Next.
 - **Framework**: Next.js 16 (App Router)
 - **Styling**: Tailwind CSS
 - **State Management**: Zustand
-- **Database**: PostgreSQL / SQLite (via Prisma)
+- **Database**: PostgreSQL / SQLite (via Drizzle ORM)
 - **PDF Rendering**: pdf.js + Canvas
 - **Encryption**: AES-256-GCM
 
@@ -50,10 +50,10 @@ Required environment variables:
 | `DATABASE_URL` | Database connection string |
 | `ENCRYPTION_KEY` | 32-byte hex key for file encryption |
 
-### 4. Database Migration
-
+### 4. Database Setup
 ```bash
-make migrate-up
+make db-generate  # Generate migrations
+make db-push      # Push schema to database
 ```
 
 ### 5. Run Application
@@ -84,7 +84,9 @@ The server will be available at `http://localhost:3000`.
 | `make push` | Trigger CI/CD build |
 | `make push-local` | Build and push multi-arch image |
 | `make update` | Update running container (Watchtower) |
-| `make migrate-up` | Run database migrations |
+| `make db-generate` | Generate database migrations |
+| `make db-push` | Push schema changes to DB |
+| `make db-studio` | Open database GUI |
 | `make key` | Generate encryption key |
 | `make encrypt` | Encrypt a PDF file |
 
@@ -103,7 +105,7 @@ The server will be available at `http://localhost:3000`.
 ├── components/        # UI components
 ├── services/          # Git submodules
 │   └── Multitenant-User-Management-Service/
-└── prisma/            # Database schema
+└── drizzle/           # Database migrations
 ```
 
 ## Supported File Types

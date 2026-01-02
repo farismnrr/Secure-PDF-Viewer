@@ -56,7 +56,7 @@ COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY scripts ./scripts
-COPY prisma ./prisma
+COPY drizzle.config.ts ./
 
 # Build
 ENV NODE_ENV=production
@@ -68,22 +68,11 @@ RUN npm rebuild better-sqlite3
 RUN npm rebuild canvas
 RUN npm run lint
 
-# Run Unit Tests (using SQLite ephemeral DB)
-# 1. Switch to SQLite
-RUN cat prisma/schema.sqlite.prisma prisma/schema.base.prisma > prisma/schema.prisma
-ENV DATABASE_URL="file:./test.db"
-# 2. Generate Client for SQLite
-RUN npx prisma generate
-# 3. Push schema to test DB
-RUN npx prisma db push
-# 4. Run Tests
+# Run Unit Tests
 RUN npm test
 
-# Clean up and Prepare for Production Build (Postgres)
-# 1. Switch back to Postgres
-RUN cat prisma/schema.postgres.prisma prisma/schema.base.prisma > prisma/schema.prisma
-# 2. Generate Client for Postgres (Implicitly done by npm run build -> prisma generate, but good to be explicit)
-RUN npx prisma generate
+# Build
+RUN npm run build
 
 RUN npm run build
 
@@ -104,17 +93,21 @@ RUN apt-get update && apt-get install -y \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Prisma CLI for removals/migrations (Global)
-RUN npm install -g prisma@6.19.1
 
 
+# Install Drizzle CLI, ORM, Postgres driver, and TSX for migrations (Global)
+RUN npm install -g drizzle-kit@0.30.4 drizzle-orm@0.39.1 postgres@3.4.7 tsx
+
+# Ensure global modules are discoverable for runtime migrations
+ENV NODE_PATH=/usr/local/lib/node_modules
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-# Non-root user
-RUN useradd -r -u 1001 nextjs
+# Non-root user with home directory for font/cache storage
+RUN useradd -m -u 1001 nextjs
+ENV XDG_CACHE_HOME=/home/nextjs/.cache
 
 # Copy standalone output
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
@@ -123,7 +116,12 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 
 COPY --chown=nextjs:nextjs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
-COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
+
+# Copy config for migrations
+COPY --from=builder --chown=nextjs:nextjs /app/drizzle.config.ts ./
+# Schema is needed for migration, ensure directory exists
+RUN mkdir -p lib/db
+COPY --from=builder --chown=nextjs:nextjs /app/lib/db/schema.ts ./lib/db/
 
 # Create storage and data directories with correct permissions
 RUN mkdir -p storage data
