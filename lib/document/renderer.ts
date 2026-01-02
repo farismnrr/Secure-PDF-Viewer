@@ -8,6 +8,7 @@ import path from 'path';
 
 // Fix for "Image or Canvas expected" error in Node.js
 if (typeof global !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).Image = Image;
 }
 
