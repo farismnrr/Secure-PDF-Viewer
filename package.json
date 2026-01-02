@@ -23,7 +23,7 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^4.2.67",
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
     "react": "19.2.3",
