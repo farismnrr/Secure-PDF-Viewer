@@ -59,11 +59,11 @@ COPY components ./components
 COPY lib ./lib
 COPY scripts ./scripts
 COPY drizzle.config.ts ./
+COPY middleware.ts ./
 
 # Build
 ENV NODE_ENV=production
 
-# Run checks before build (CI style)
 # Run checks before build (CI style)
 RUN mkdir -p data
 RUN npm rebuild better-sqlite3
