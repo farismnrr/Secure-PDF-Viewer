@@ -9,7 +9,7 @@
  * - Noise patterns to confuse AI detection
  */
 
-import { useMemo } from 'react';
+import { useState } from 'react';
 
 interface WatermarkOverlayProps {
     ip?: string;
@@ -29,7 +29,8 @@ export default function WatermarkOverlay({ ip, timestamp, sessionId, customText 
     const watermarkText = parts.join(' | ') || 'CONFIDENTIAL';
 
     // Generate tiled watermark grid with random variations
-    const watermarkTiles = useMemo(() => {
+    // Use useState to generate random values once on mount (proper fix for purity)
+    const [watermarkTiles] = useState(() => {
         const tiles = [];
         const rows = 8; // Increased density
         const cols = 6;
@@ -58,7 +59,7 @@ export default function WatermarkOverlay({ ip, timestamp, sessionId, customText 
             }
         }
         return tiles;
-    }, [sessionId]); // Regenerate when session changes
+    });
 
     return (
         <>
