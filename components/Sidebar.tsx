@@ -39,7 +39,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
     // Verify token and fetch user info
     if (token) {
-      const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL || 'https://sso.farismunir.my.id';
+      const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL;
+      if (!ssoUrl) {
+        console.error('NEXT_PUBLIC_SSO_URL is not configured');
+        return;
+      }
       fetch(`${ssoUrl}/auth/verify`, {
         headers: {
           'Authorization': `Bearer ${token}`

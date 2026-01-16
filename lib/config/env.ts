@@ -21,7 +21,11 @@ export interface DbConfig {
 }
 
 export function getDbType(): DbType {
-    const dbType = process.env.DB_TYPE || 'sqlite';
+    const dbType = process.env.DB_TYPE;
+
+    if (!dbType) {
+        throw new Error('DB_TYPE must be configured (sqlite or postgres)');
+    }
     if (dbType !== 'sqlite' && dbType !== 'postgres') {
         throw new Error(`Invalid DB_TYPE: ${dbType}. Must be 'sqlite' or 'postgres'`);
     }
@@ -32,19 +36,46 @@ export function getDbConfig(): DbConfig {
     const type = getDbType();
 
     if (type === 'sqlite') {
+        const path = process.env.DB_PATH;
+        if (!path) {
+            throw new Error('DB_PATH must be configured when using SQLite');
+        }
         return {
             type,
-            path: process.env.DB_PATH || 'data/viewer.db'
+            path
         };
+    }
+
+    // PostgreSQL
+    const host = process.env.DB_HOST;
+    const port = process.env.DB_PORT;
+    const user = process.env.DB_USER;
+    const password = process.env.DB_PASSWORD;
+    const database = process.env.DB_NAME;
+
+    if (!host) {
+        throw new Error('DB_HOST must be configured when using PostgreSQL');
+    }
+    if (!port) {
+        throw new Error('DB_PORT must be configured when using PostgreSQL');
+    }
+    if (!user) {
+        throw new Error('DB_USER must be configured when using PostgreSQL');
+    }
+    if (!password) {
+        throw new Error('DB_PASSWORD must be configured when using PostgreSQL');
+    }
+    if (!database) {
+        throw new Error('DB_NAME must be configured when using PostgreSQL');
     }
 
     return {
         type,
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432', 10),
-        user: process.env.DB_USER || 'postgres',
-        password: process.env.DB_PASSWORD || 'postgres',
-        database: process.env.DB_NAME || 'pdf_viewer'
+        host,
+        port: parseInt(port, 10),
+        user,
+        password,
+        database
     };
 }
 
@@ -59,10 +90,24 @@ export interface SsoConfig {
 }
 
 export function getSsoConfig(): SsoConfig {
+    const url = process.env.NEXT_PUBLIC_SSO_URL;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+    const tenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+
+    if (!url) {
+        throw new Error('NEXT_PUBLIC_SSO_URL must be configured');
+    }
+    if (!apiKey) {
+        throw new Error('NEXT_PUBLIC_API_KEY must be configured');
+    }
+    if (!tenantId) {
+        throw new Error('NEXT_PUBLIC_TENANT_ID must be configured');
+    }
+
     return {
-        url: process.env.SSO_URL || process.env.NEXT_PUBLIC_SSO_URL || '',
-        apiKey: process.env.API_KEY || '',
-        tenantId: process.env.TENANT_ID || process.env.NEXT_PUBLIC_TENANT_ID || ''
+        url,
+        apiKey,
+        tenantId
     };
 }
 

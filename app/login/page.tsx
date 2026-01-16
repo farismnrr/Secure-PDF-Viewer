@@ -28,9 +28,15 @@ function LoginFormFallback() {
 
 export default function AdminLoginPage() {
   // Read from runtime environment (server-side)
-  // These will be available in the container via .env
-  const ssoUrl = process.env.SSO_URL || process.env.NEXT_PUBLIC_SSO_URL || 'http://localhost:5500';
-  const tenantId = process.env.TENANT_ID || process.env.NEXT_PUBLIC_TENANT_ID || '';
+  const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL;
+  const tenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+
+  if (!ssoUrl) {
+    throw new Error('NEXT_PUBLIC_SSO_URL must be configured');
+  }
+  if (!tenantId) {
+    throw new Error('NEXT_PUBLIC_TENANT_ID must be configured');
+  }
 
   return (
     <div

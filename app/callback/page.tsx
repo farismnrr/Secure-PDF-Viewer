@@ -25,11 +25,9 @@ export default function CallbackPage() {
       }
 
       // Note: CSRF protection is handled by SSO validating redirect_uri
+      // Refresh token cookie is set by SSO service (HttpOnly, Secure, SameSite=None)
 
-      // Store token in cookie (httpOnly would be better, but this works for client-side)
-      document.cookie = `access_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`;
-
-      // Also store in sessionStorage for API calls
+      // Store token in sessionStorage for API calls
       sessionStorage.setItem('access_token', accessToken);
 
       // Clear URL hash for security
