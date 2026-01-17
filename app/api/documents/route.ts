@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, documents } from '@/lib/db';
 import { eq, and, count, desc } from 'drizzle-orm';
-import { encryptBuffer, getMasterKey, hashPassword, generateDocId } from '@/lib/utils/crypto';
+import { encryptBuffer, getMasterKey, hashPassword, generateDocId, getStoragePath } from '@/lib/utils';
 import { extractAuthInfo } from '@/lib/auth/helper';
 import fs from 'fs';
 import path from 'path';
@@ -90,10 +90,18 @@ export async function GET(request: NextRequest) {
             }
         });
     } catch (error) {
-        console.error('[GET /api/documents] List failed:', error);
+        // console.error('[GET /api/documents] List failed:', error);
+        // console.error('Error details:', {
+        //   message: error instanceof Error ? error.message : 'Unknown error',
+        //   stack: error instanceof Error ? error.stack : undefined
+        // });
 
         return NextResponse.json(
-            { status: false, message: 'Failed to list documents' },
+            {
+                status: false,
+                message: 'Failed to list documents',
+                debug: error instanceof Error ? error.message : 'Unknown error'
+            },
             { status: 500 }
         );
     }
@@ -177,8 +185,9 @@ export async function POST(request: NextRequest) {
 
         // Save to storage - organize by user folder
         const filename = `${docId}.${fileExt}${shouldEncrypt ? '.enc' : ''}`;
-        const userStorageDir = path.join(process.cwd(), 'storage', userId);
-        const storagePath = path.join(userStorageDir, filename);
+        const relativePath = `${userId}/${filename}`;
+        const storagePath = getStoragePath(relativePath);
+        const userStorageDir = path.dirname(storagePath);
 
         // Ensure user storage directory exists
         if (!fs.existsSync(userStorageDir)) {
@@ -230,11 +239,11 @@ export async function POST(request: NextRequest) {
             }
         }, { status: 201 });
     } catch (error) {
-        console.error('[POST /api/documents] Upload failed:', error);
-        console.error('[POST /api/documents] Error details:', {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined
-        });
+        // console.error('[POST /api/documents] Upload failed:', error);
+        // console.error('[POST /api/documents] Error details:', {
+        //   message: error instanceof Error ? error.message : 'Unknown error',
+        //   stack: error instanceof Error ? error.stack : undefined
+        // });
 
         return NextResponse.json(
             {

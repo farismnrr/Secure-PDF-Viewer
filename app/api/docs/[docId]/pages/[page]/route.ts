@@ -10,9 +10,8 @@ import { checkRateLimit } from '@/lib/services/rate-limiter';
 import { logAccess } from '@/lib/services/logger';
 import { renderPage, getPageCount } from '@/lib/document/renderer';
 import { applyWatermark } from '@/lib/document/watermark';
-import { decryptBuffer, getMasterKey } from '@/lib/utils/crypto';
+import { decryptBuffer, getMasterKey, getStoragePath } from '@/lib/utils';
 import fs from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -123,7 +122,7 @@ export async function GET(
             }
 
             // Load and decrypt image
-            const encPath = path.join(process.cwd(), document.encryptedPath);
+            const encPath = getStoragePath(document.encryptedPath);
             if (!fs.existsSync(encPath)) {
                 return NextResponse.json(
                     { error: 'Document file not found' },
@@ -136,7 +135,7 @@ export async function GET(
         } else {
             // PDF handling - Load and decrypt PDF (with caching)
             const loadPdfValues = async () => {
-                const encPath = path.join(process.cwd(), document.encryptedPath);
+                const encPath = getStoragePath(document.encryptedPath);
                 if (!fs.existsSync(encPath)) {
                     throw new Error('Document file not found');
                 }
@@ -209,7 +208,7 @@ export async function GET(
         });
 
     } catch (error) {
-        console.error('API Error in pages route:', error);
+        // console.error('API Error in pages route:', error);
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

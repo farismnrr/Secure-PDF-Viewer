@@ -8,10 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, documents } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { hashPassword } from '@/lib/utils/crypto';
+import { hashPassword, getStoragePath } from '@/lib/utils';
 import { extractAuthInfo } from '@/lib/auth/helper';
 import fs from 'fs';
-import path from 'path';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -211,7 +210,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
         if (hardDelete) {
             // Delete file from storage
-            const filePath = path.join(process.cwd(), existing.encryptedPath);
+            const filePath = getStoragePath(existing.encryptedPath);
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }

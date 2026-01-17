@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth';
 import {
   BarChart3,
   Upload,
@@ -21,52 +21,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
-
-  // Re-check auth state on pathname change
-  useEffect(() => {
-    // Only access storage on client
-    const token = sessionStorage.getItem('access_token');
-    const hasCookie = document.cookie.includes('access_token=');
-    const newState = !!token || hasCookie;
-
-    if (newState !== isLoggedIn) {
-      setIsLoggedIn(newState);
-    }
-
-    // Verify token and fetch user info
-    if (token) {
-      const ssoUrl = process.env.NEXT_PUBLIC_SSO_URL;
-      if (!ssoUrl) {
-        console.error('NEXT_PUBLIC_SSO_URL is not configured');
-        return;
-      }
-      fetch(`${ssoUrl}/auth/verify`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-        .then(res => {
-          if (!res.ok) {
-            throw new Error('Unauthorized');
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.data) {
-            setUser(data.data);
-          }
-        })
-        .catch(() => {
-          // Silently fail or handle error appropriately without spamming console
-        });
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  const { user, isAuthenticated, logout } = useAuthStore();
 
   const isActive = (path: string) => {
     return pathname === path || (pathname.startsWith(path) && path !== '/dashboard');
@@ -88,10 +43,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   ];
 
   const handleLogout = () => {
-    // Clear token
-    document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    sessionStorage.removeItem('access_token');
-    router.push('/login');
+    logout();
   };
 
   return (
@@ -177,7 +129,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             </Button>
           </div>
         ) : (
-          isLoggedIn && (
+          isAuthenticated && (
             <Button
               variant="ghost"
               className={cn(

@@ -7,6 +7,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -50,6 +52,8 @@ interface Pagination {
 }
 
 export default function DashboardPage() {
+    const router = useRouter();
+    const accessToken = useAuthStore(state => state.accessToken);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [pagination, setPagination] = useState<Pagination | null>(null);
     const [loading, setLoading] = useState(true);
@@ -61,17 +65,20 @@ export default function DashboardPage() {
             setLoading(true);
             setError(null);
 
-            const token = sessionStorage.getItem('access_token');
             const response = await fetch(
                 `/api/documents?status=${statusFilter}&page=${page}&limit=20`,
                 {
                     headers: {
-                        'Authorization': `Bearer ${token || ''}`
+                        'Authorization': `Bearer ${accessToken || ''}`
                     }
                 }
             );
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    router.push('/login');
+                    return;
+                }
                 throw new Error('Failed to fetch documents');
             }
 
@@ -93,11 +100,10 @@ export default function DashboardPage() {
         if (!confirm('Are you sure you want to delete this document?')) return;
 
         try {
-            const token = sessionStorage.getItem('access_token');
             const response = await fetch(`/api/documents/${docId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${token || ''}`
+                    'Authorization': `Bearer ${accessToken || ''}`
                 }
             });
 

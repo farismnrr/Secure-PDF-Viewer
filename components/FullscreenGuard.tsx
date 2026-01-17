@@ -23,7 +23,7 @@ export default function FullscreenGuard({ children, onFullscreenExit }: Fullscre
             setHasEnteredFullscreen(true);
             setShowPrompt(false);
         } catch (err) {
-            console.error('Failed to enter fullscreen:', err);
+            // console.error('Failed to enter fullscreen:', err);
         }
     }, []);
 

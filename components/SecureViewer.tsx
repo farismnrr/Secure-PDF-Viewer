@@ -60,7 +60,7 @@ export default function SecureViewer({
 
             setLoadedPages(prev => new Map(prev).set(pageNum, url));
         } catch (err) {
-            console.error(`Error loading page ${pageNum}:`, err);
+            // console.error(`Error loading page ${pageNum}:`, err);
             // Only set error if it's the first page (critical)
             if (pageNum === 1) {
                 setError(err instanceof Error ? err.message : 'Failed to load page');

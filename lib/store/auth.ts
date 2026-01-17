@@ -32,6 +32,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             accessToken: token,
             isAuthenticated: !!token,
         });
+
         if (token) {
             get().fetchUser();
         }
@@ -90,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 get().clearAuth();
             }
         } catch (error) {
-            console.error("Failed to refresh token", error);
+            // console.error("Failed to refresh token", error);
             get().clearAuth();
         }
     },
@@ -112,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 set({ user: userData.data?.user || userData.data || userData });
             }
         } catch (error) {
-            console.error("Fetch user failed:", error);
+            // console.error("Fetch user failed:", error);
         }
     },
 

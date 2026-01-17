@@ -9,9 +9,8 @@ import { isNonceValid, getNonceInfo } from '@/lib/services/nonce';
 import { checkRateLimit } from '@/lib/services/rate-limiter';
 import { logAccess } from '@/lib/services/logger';
 import { getPageCount } from '@/lib/document/renderer';
-import { decryptBuffer, getMasterKey } from '@/lib/utils/crypto';
+import { decryptBuffer, getMasterKey, getStoragePath } from '@/lib/utils';
 import fs from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +76,7 @@ export async function GET(
             } else {
                 // It's a PDF, decrypt and get page count
                 try {
-                    const encPath = path.join(process.cwd(), document.encryptedPath);
+                    const encPath = getStoragePath(document.encryptedPath);
                     const encryptedData = fs.readFileSync(encPath);
                     const key = getMasterKey();
                     const pdfBuffer = decryptBuffer(encryptedData, key);

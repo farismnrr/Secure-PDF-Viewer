@@ -7,9 +7,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store/auth';
 
 export default function CallbackPage() {
   const router = useRouter();
+  const setAccessToken = useAuthStore(state => state.setAccessToken);
   const [error, setError] = useState<string | null>(null);
 
   const handleCallback = useCallback(async () => {
@@ -24,11 +26,8 @@ export default function CallbackPage() {
         throw new Error('No access token received');
       }
 
-      // Note: CSRF protection is handled by SSO validating redirect_uri
-      // Refresh token cookie is set by SSO service (HttpOnly, Secure, SameSite=None)
-
-      // Store token in sessionStorage for API calls
-      sessionStorage.setItem('access_token', accessToken);
+      // Store token in Zustand store (handles memory + cookie)
+      setAccessToken(accessToken);
 
       // Clear URL hash for security
       window.history.replaceState(null, '', window.location.pathname);
@@ -39,10 +38,9 @@ export default function CallbackPage() {
 
       router.push(redirect);
     } catch (err) {
-
       setError(err instanceof Error ? err.message : 'Authentication failed');
     }
-  }, [router]);
+  }, [router, setAccessToken]);
 
   useEffect(() => {
     handleCallback();

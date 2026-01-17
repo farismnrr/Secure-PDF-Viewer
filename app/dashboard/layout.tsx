@@ -1,9 +1,5 @@
-/**
- * Dashboard Layout
- * Wraps all dashboard pages with shell
- */
-
 import { Shell } from '@/components/Shell';
+import { RouteGuard } from '@/components/RouteGuard';
 
 export const metadata = {
   title: 'Dashboard - Secure File Viewer',
@@ -16,8 +12,10 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <Shell>
-      {children}
-    </Shell>
+    <RouteGuard>
+      <Shell>
+        {children}
+      </Shell>
+    </RouteGuard>
   );
 }

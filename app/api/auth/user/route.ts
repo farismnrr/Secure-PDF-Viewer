@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
         if (!backendResponse.ok) {
             const error = await backendResponse.text();
-            console.error("SSO user fetch failed:", error);
+            // console.error("SSO user fetch failed:", error);
             return NextResponse.json(
                 { message: "Failed to fetch user" },
                 { status: backendResponse.status },
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         const data = await backendResponse.json();
         return NextResponse.json(data, { status: 200 });
     } catch (error) {
-        console.error("User proxy error:", error);
+        // console.error("User proxy error:", error);
         return NextResponse.json({ message: "Internal server error" }, { status: 500 });
     }
 }
